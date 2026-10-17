@@ -1,0 +1,102 @@
+name: Release
+
+# Manual only: Actions -> Release -> Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version name shown in the app and the release (e.g. 0.1.0)"
+        required: true
+        default: "0.1.0"
+      prerelease:
+        description: "Mark the release as a pre-release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Build signed release APKs (per ABI + universal)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: ./gradlew :app:assembleRelease -PversionName="$VERSION" -PversionCode="$GITHUB_RUN_NUMBER" --no-daemon
+
+      - name: Collect and verify APKs
+        id: collect
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          shopt -s nullglob
+          for f in app/build/outputs/apk/release/app-*-release.apk; do
+            abi="$(basename "$f" | sed -E 's/^app-(.*)-release\.apk$/\1/')"
+            cp "$f" "dist/opensms-${VERSION}-${abi}.apk"
+          done
+          count="$(ls dist/*.apk | wc -l)"
+          echo "APK count: $count"
+          [ "$count" -eq 5 ] || { echo "expected 5 APKs (4 ABIs + universal)"; ls -la app/build/outputs/apk/release; exit 1; }
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          for f in dist/*.apk; do
+            "$APKSIGNER" verify --min-sdk-version 26 "$f"
+            echo "$(basename "$f"): $("$APKSIGNER" verify --print-certs "$f" | grep 'SHA-256' | head -1)"
+          done
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          cat dist/SHA256SUMS.txt
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          DATE="$(date -u +'%Y-%m-%d')"
+          TAG="v${VERSION}-build.${GITHUB_RUN_NUMBER}"
+          cat > notes.md <<NOTES
+          New release on ${DATE}
+
+          Version ${VERSION} (build ${GITHUB_RUN_NUMBER}), built from commit ${GITHUB_SHA::7}.
+
+          Which file do I download?
+          - arm64-v8a: almost every phone made after 2017
+          - armeabi-v7a: older 32-bit phones
+          - x86 / x86_64: emulators and some Chromebooks
+          - universal: works everywhere (larger)
+
+          All APKs are signed with the same OpenSMS key. Verify downloads with SHA256SUMS.txt.
+          NOTES
+          sed -i 's/^          //' notes.md
+          FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then FLAGS="--prerelease"; fi
+          gh release create "$TAG" dist/*.apk dist/SHA256SUMS.txt \
+            --title "OpenSMS ${VERSION} (build ${GITHUB_RUN_NUMBER})" \
+            --notes-file notes.md \
+            --target "$GITHUB_SHA" $FLAGS
+          echo "Released $TAG" >> "$GITHUB_STEP_SUMMARY"

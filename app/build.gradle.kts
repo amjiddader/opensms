@@ -13,8 +13,9 @@ android {
         applicationId = "com.wansaw.opensms"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes -PversionCode=<run number>; local builds use 1.
+        versionCode = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(1)
+        versionName = providers.gradleProperty("versionName").getOrElse("0.1.0")
         // Only URLs and non-secret configuration live here.
         buildConfigField("String", "API_BASE_URL", "\"${providers.gradleProperty("apiBaseUrl").getOrElse("https://opensms.wansaw.com")}\"")
         buildConfigField("String", "TERMS_VERSION", "\"2026-10-01\"")
@@ -42,6 +43,16 @@ android {
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    // One APK per CPU architecture plus a universal APK that runs everywhere.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
         }
     }
 

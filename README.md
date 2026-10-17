@@ -2,7 +2,7 @@
 
 Turn an Android phone into a personal SMS gateway. The app opens an outbound secure WebSocket to your OpenSMS backend, receives send requests, sends them through your SIM cards (dual-SIM aware) and reports the result. No tunnelling software and no open inbound ports.
 
-> Personal-use project. The backend is a separate private repository (`opensmsapi`). This repository contains only the Android app and the public protocol description.
+> This repository contains only the Android app and the public protocol description.
 
 ## How it works
 
@@ -22,12 +22,7 @@ Turn an Android phone into a personal SMS gateway. The app opens an outbound sec
 
 ## Configuration
 
-The only build-time configuration is the backend URL (`https://sms-api.wansaw.com`, `wss://sms-api.wansaw.com/v1/connect`). **No keys or secrets belong in this repository.**
-
-## Documentation
-
-- [`PLAN.md`](PLAN.md) – design and milestones
-- [`docs/protocol/v1.md`](docs/protocol/v1.md) – device ↔ backend protocol and callback payloads
+The only build-time configuration is the backend URL (`https://opensms.wansaw.com`, `wss://opensms.wansaw.com/v1/connect`). **No keys or secrets belong in this repository.**
 
 ## Status
 
@@ -36,3 +31,8 @@ Planning complete; the Android project is not created yet.
 ## License
 
 Apache-2.0, see [`LICENSE`](LICENSE).
+
+## Build and release
+
+- Local: `./gradlew :app:assembleDebug` (JDK 17, Android SDK 37). Point a debug build at a local backend with `-PapiBaseUrl=http://10.0.2.2:8787`.
+- Release: GitHub → Actions → **Release** → *Run workflow*. It runs the unit tests, builds signed APKs for `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` and a universal APK, and publishes a GitHub Release ("New release on <date>") with the APKs and `SHA256SUMS.txt`.
