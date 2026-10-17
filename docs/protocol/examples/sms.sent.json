@@ -1,0 +1,10 @@
+{
+  "type": "sms.sent",
+  "event_id": "01K7Z0Q5M2K3T7X9A1B2C3D4E5",
+  "job_id": "job_01k7z0q5m2k3t7x9a1b2c3d4e5",
+  "attempt_id": "att-01K7Z0Q5M2K3T7X9A1B2C3D4E6",
+  "ts": 1760000001234,
+  "sim": 1,
+  "segments_total": 1,
+  "segments_sent": 1
+}

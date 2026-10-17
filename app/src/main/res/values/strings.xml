@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">OpenSMS</string>
+    <string name="notif_channel">Gateway status</string>
+    <string name="notif_channel_desc">Shows that your phone is ready to send SMS</string>
+    <string name="notif_starting">Starting…</string>
+    <string name="notif_online">Online · ready to send</string>
+    <string name="notif_waiting">Waiting for administrator approval</string>
+    <string name="notif_connecting">Connecting…</string>
+    <string name="notif_offline">Offline · retrying</string>
+    <string name="notif_blocked">This device is blocked</string>
+    <string name="notif_rejected">Installation was rejected</string>
+    <string name="notif_update">Update required</string>
+    <string name="notif_setup">Finish setup to start</string>
+    <string name="notif_paused">Paused</string>
+    <string name="notif_pause">Pause</string>
+</resources>

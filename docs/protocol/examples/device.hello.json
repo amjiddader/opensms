@@ -1,0 +1,14 @@
+{
+  "type": "device.hello",
+  "protocol_version": 1,
+  "app_version": "0.1.0",
+  "device": { "model": "Pixel 8", "manufacturer": "Google", "os_version": "15" },
+  "timezone": "Asia/Kolkata",
+  "sims": [
+    { "slot": 1, "present": true, "carrier_name": "Jio", "display_name": "Jio", "country_iso": "IN" },
+    { "slot": 2, "present": false }
+  ],
+  "settings_revision": 1,
+  "last_acked_event_id": null,
+  "in_flight": []
+}

@@ -1,0 +1,5 @@
+-keepattributes *Annotation*, InnerClasses
+-dontwarn org.slf4j.**
+-keep,includedescriptorclasses class com.wansaw.opensms.**$$serializer { *; }
+-keepclassmembers class com.wansaw.opensms.** { *** Companion; }
+-keepclasseswithmembers class com.wansaw.opensms.** { kotlinx.serialization.KSerializer serializer(...); }
