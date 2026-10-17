@@ -10,6 +10,7 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.sqlite.execSQL
 import kotlinx.coroutines.flow.Flow
 
 object JobState {
@@ -40,6 +41,10 @@ data class JobEntity(
     val simUsed: Int? = null,
     /** Bit 1 = slot 1 tried, bit 2 = slot 2 tried. */
     val triedSims: Int = 0,
+    /** 1 for the first attempt, 2 for the first retry, ... */
+    val attemptNo: Int = 1,
+    /** A retry is not started before this time (epoch ms). */
+    val notBefore: Long = 0,
     val partsTotal: Int = 0,
     val partsOk: Int = 0,
     val partsFailed: Int = 0,
@@ -71,8 +76,8 @@ abstract class JobDao {
     @Query("SELECT * FROM jobs WHERE jobId = :id")
     abstract suspend fun get(id: String): JobEntity?
 
-    @Query("SELECT * FROM jobs WHERE state = 'accepted' ORDER BY createdAt ASC LIMIT 1")
-    abstract suspend fun nextAccepted(): JobEntity?
+    @Query("SELECT * FROM jobs WHERE state = 'accepted' AND notBefore <= :now ORDER BY createdAt ASC LIMIT 1")
+    abstract suspend fun nextAccepted(now: Long): JobEntity?
 
     @Query("SELECT * FROM jobs WHERE state IN ('accepted','submitting')")
     abstract suspend fun active(): List<JobEntity>
@@ -89,12 +94,12 @@ abstract class JobDao {
     @Query("SELECT COUNT(*) FROM jobs WHERE state IN ('accepted','submitting')")
     abstract fun pending(): Flow<Int>
 
-    /** Segments used today (optionally for one SIM); failed/expired jobs do not count. */
+    /** Messages used today (optionally for one SIM, 0 = all); failed/expired jobs do not count. One message = one job, however many SMS parts. */
     @Query(
-        "SELECT COALESCE(SUM(CASE WHEN partsTotal > 0 THEN partsTotal ELSE segmentsEstimated END), 0) FROM jobs " +
+        "SELECT COUNT(*) FROM jobs " +
             "WHERE createdAt >= :since AND state NOT IN ('failed','expired') AND (:slot = 0 OR simUsed = :slot)",
     )
-    abstract suspend fun segmentsSince(since: Long, slot: Int): Int
+    abstract suspend fun messagesSince(since: Long, slot: Int): Int
 
     @Query("DELETE FROM jobs WHERE createdAt < :before AND state NOT IN ('accepted','submitting')")
     abstract suspend fun prune(before: Long)
@@ -145,8 +150,16 @@ abstract class OutboxDao {
     abstract suspend fun clear()
 }
 
-@Database(entities = [JobEntity::class, EventEntity::class], version = 1, exportSchema = true)
+@Database(entities = [JobEntity::class, EventEntity::class], version = 2, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun jobs(): JobDao
     abstract fun outbox(): OutboxDao
+}
+
+/** v1 -> v2: retry bookkeeping. */
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("ALTER TABLE jobs ADD COLUMN attemptNo INTEGER NOT NULL DEFAULT 1")
+        connection.execSQL("ALTER TABLE jobs ADD COLUMN notBefore INTEGER NOT NULL DEFAULT 0")
+    }
 }

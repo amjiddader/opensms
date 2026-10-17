@@ -61,7 +61,7 @@ private fun Step(n: String, title: String, body: String) {
 
 private fun Intent.newTask() = apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 
-private fun requestIgnoreBattery(ctx: Context) {
+internal fun requestIgnoreBattery(ctx: Context) {
     val direct = Intent(AndroidSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")).newTask()
     runCatching { ctx.startActivity(direct) }.onFailure {
         runCatching { ctx.startActivity(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).newTask()) }

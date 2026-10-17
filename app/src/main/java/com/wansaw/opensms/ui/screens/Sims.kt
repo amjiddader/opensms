@@ -77,7 +77,7 @@ fun SimsScreen(vm: AppViewModel) {
                 )
             }
             GlassDivider()
-            SwitchRow("Retry on the other SIM", "If a send fails for a network reason, try the other SIM once. Never after an unclear result.", s.retryAlternativeSim, { on -> vm.updateSettings { it.copy(retryAlternativeSim = on) } })
+            SwitchRow("Prefer the other SIM when retrying", "A retry (see Settings → Retry failed messages) first tries the SIM that has not been used yet.", s.retryAlternativeSim, { on -> vm.updateSettings { it.copy(retryAlternativeSim = on) } })
         }
     }
 }
@@ -103,7 +103,7 @@ private fun SimCard(sim: SimReport, cfg: SimCfg, onEnabled: (Boolean) -> Unit, o
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Daily limit", style = MaterialTheme.typography.titleMedium)
-                    Text(cfg.dailyLimit?.let { "$it segments / day" } ?: "No limit", style = MaterialTheme.typography.bodyMedium, color = g.textSecondary)
+                    Text(cfg.dailyLimit?.let { "$it messages / day" } ?: "No limit", style = MaterialTheme.typography.bodyMedium, color = g.textSecondary)
                 }
                 Stepper(cfg.dailyLimit, onLimit)
             }
@@ -111,13 +111,33 @@ private fun SimCard(sim: SimReport, cfg: SimCfg, onEnabled: (Boolean) -> Unit, o
     }
 }
 
-/** − 50 + control for an optional integer limit (null = unlimited). */
+/** − / + / Set control for an optional integer limit (null = unlimited). "Set" lets you type the number. */
 @Composable
-fun Stepper(value: Int?, onChange: (Int?) -> Unit, step: Int = 50, min: Int = 1, max: Int = 100_000) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+fun Stepper(value: Int?, onChange: (Int?) -> Unit, step: Int = 10, min: Int = 1, max: Int = 100_000) {
+    var editing by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onChange(if (value == null) null else (value - step).takeIf { it >= min }) }, enabled = value != null) {
             Icon(Icons.Rounded.Remove, "Less")
         }
         IconButton(onClick = { onChange(((value ?: 0) + step).coerceAtMost(max)) }) { Icon(Icons.Rounded.Add, "More", tint = Blue) }
+        TextButton(onClick = { editing = true }) { Text("Set", color = Blue) }
+    }
+    if (editing) {
+        var text by remember { mutableStateOf(value?.toString().orEmpty()) }
+        val n = text.trim().toIntOrNull()
+        val valid = text.isBlank() || (n != null && n in min..max)
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("Messages per day") },
+            text = {
+                GlassField(
+                    text, { text = it.filter(Char::isDigit).take(6) }, "Limit (empty = no limit)",
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                    error = if (valid) null else "Enter $min to $max",
+                )
+            },
+            confirmButton = { TextButton(enabled = valid, onClick = { onChange(if (text.isBlank()) null else n); editing = false }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+        )
     }
 }

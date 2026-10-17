@@ -39,6 +39,10 @@ data class Settings(
     @SerialName("sim_strategy") val simStrategy: String = "round_robin", // preferred | round_robin | least_used
     @SerialName("preferred_sim") val preferredSim: String? = null,
     @SerialName("retry_alternative_sim") val retryAlternativeSim: Boolean = true,
+    /** How many times a confirmed failure is retried (0 = never). */
+    @SerialName("retry_count") val retryCount: Int = 1,
+    /** Wait before a retry. */
+    @SerialName("retry_delay_ms") val retryDelayMs: Int = 1000,
     @SerialName("daily_limit") val dailyLimit: Int? = null,
     @SerialName("pacing_interval_ms") val pacingIntervalMs: Int = 2000,
     @SerialName("delivery_reports") val deliveryReports: Boolean = false,

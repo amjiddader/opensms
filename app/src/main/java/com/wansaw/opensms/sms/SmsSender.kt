@@ -46,17 +46,48 @@ class SmsSender(private val context: Context, private val sims: SimInfo) {
     }
 }
 
+/** What the platform reported for one SMS part. */
+class SmsFailure(val code: String, val message: String, val retryable: Boolean)
+
 object SmsError {
-    /** Platform result code -> (error_code, retryable on another SIM). */
-    fun fromResult(code: Int): Pair<String, Boolean> = when (code) {
-        SmsManager.RESULT_ERROR_GENERIC_FAILURE -> "generic_failure" to true
-        SmsManager.RESULT_ERROR_RADIO_OFF -> "radio_off" to true
-        SmsManager.RESULT_ERROR_NO_SERVICE -> "no_service" to true
-        SmsManager.RESULT_ERROR_NULL_PDU -> "null_pdu" to false
-        SmsManager.RESULT_ERROR_LIMIT_EXCEEDED -> "limit_exceeded" to false
-        SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE -> "fdn_check_failure" to false
-        SmsManager.RESULT_ERROR_SHORT_CODE_NOT_ALLOWED -> "short_code_not_allowed" to false
-        SmsManager.RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED -> "short_code_never_allowed" to false
-        else -> "send_error_$code" to false
+    private const val NETWORK_HELP = "The carrier or network refused the SMS. Common causes: the SIM's SMS balance/pack is used up, no signal, or SMS is blocked on the plan."
+
+    /** Platform result code (android.telephony.SmsManager.RESULT_*) -> readable failure. Retryable = worth trying again. */
+    fun fromResult(code: Int): SmsFailure = when (code) {
+        1 -> SmsFailure("generic_failure", "The phone could not send the SMS (generic failure).", true)
+        2 -> SmsFailure("radio_off", "Radio is off (airplane mode?).", true)
+        3 -> SmsFailure("null_pdu", "The SMS could not be encoded.", false)
+        4 -> SmsFailure("no_service", "No mobile service on this SIM.", true)
+        5 -> SmsFailure("limit_exceeded", "Android's SMS rate limit was hit; sending too fast.", false)
+        6 -> SmsFailure("fdn_check_failure", "Blocked by the SIM's fixed dialing list.", false)
+        7, 8 -> SmsFailure("short_code_not_allowed", "Sending to this short code is not allowed.", false)
+        9, 100 -> SmsFailure("radio_not_available", "The radio is not available or is restarting.", true)
+        10, 102 -> SmsFailure("network_reject", "The network rejected the SMS.", true)
+        11, 104 -> SmsFailure("invalid_arguments", "Invalid SMS arguments.", false)
+        12, 103 -> SmsFailure("invalid_state", "The modem was in the wrong state.", true)
+        13, 105 -> SmsFailure("no_memory", "The modem is out of memory.", true)
+        14, 107 -> SmsFailure("invalid_sms_format", "Invalid SMS format.", false)
+        15, 108 -> SmsFailure("system_error", "System error while sending.", true)
+        16, 111 -> SmsFailure("modem_error", "Modem error while sending.", true)
+        17, 112 -> SmsFailure("network_error", "Network error ($code). $NETWORK_HELP", true)
+        18, 109 -> SmsFailure("encoding_error", "The message could not be encoded.", false)
+        19, 110 -> SmsFailure("invalid_smsc_address", "The SIM's SMS centre number is invalid or missing.", false)
+        20, 117 -> SmsFailure("operation_not_allowed", "Sending SMS is not allowed on this SIM or plan.", false)
+        21, 113 -> SmsFailure("internal_error", "Internal telephony error.", true)
+        22, 118 -> SmsFailure("no_resources", "The modem has no resources to send right now.", true)
+        23, 119 -> SmsFailure("cancelled", "The send was cancelled.", false)
+        24, 114 -> SmsFailure("request_not_supported", "This SIM or network does not support this SMS.", false)
+        29 -> SmsFailure("blocked_during_emergency", "SMS is blocked during an emergency call.", true)
+        30, 101 -> SmsFailure("send_retry_failed", "The radio tried again and still failed.", true)
+        31 -> SmsFailure("remote_exception", "The telephony service did not answer.", true)
+        32 -> SmsFailure("no_default_sms_app", "No default SMS app is set on this phone.", false)
+        33 -> SmsFailure("user_not_allowed", "This Android user is not allowed to send SMS.", false)
+        106 -> SmsFailure("rate_limited", "The modem rate-limited the SMS.", true)
+        115, 116 -> SmsFailure("network_not_ready", "The network is not ready yet.", true)
+        120 -> SmsFailure("sim_absent", "The SIM is absent.", false)
+        121, 123 -> SmsFailure("blocked_due_to_call", "SMS is blocked while a call is active.", true)
+        122 -> SmsFailure("access_barred", "Network access is barred for this SIM.", true)
+        124, 125 -> SmsFailure("ril_error", "Radio layer error ($code).", true)
+        else -> SmsFailure("send_error_$code", "The platform reported SMS error $code.", false)
     }
 }

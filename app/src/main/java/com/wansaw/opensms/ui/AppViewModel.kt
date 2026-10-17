@@ -81,6 +81,19 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     fun retryNow() = c.gateway.reconnectNow()
+
+    /** Button "Refresh status": ask the server immediately whether the administrator approved this phone. */
+    fun refreshStatus() {
+        ensureRunning()
+        c.gateway.reconnectNow()
+    }
+
+    /** Called whenever the app comes to the foreground. */
+    fun onForeground() {
+        refreshSims()
+        ensureRunning()
+        if (c.gateway.state.value.phase in setOf(Phase.WAITING_APPROVAL, Phase.OFFLINE)) c.gateway.reconnectNow()
+    }
     fun requestAgain() = c.gateway.retryAfterRejection()
 
     val canPause get() = gateway.value.phase != Phase.PAUSED

@@ -67,6 +67,7 @@ fun HomeScreen(vm: AppViewModel) {
                 }
                 Spacer(Modifier.height(22.dp))
                 when (phase) {
+                    Phase.WAITING_APPROVAL -> WaitingActions(vm, st)
                     Phase.REJECTED -> GlassButton("Request approval again", { vm.requestAgain() }, icon = Icons.Rounded.Refresh)
                     Phase.OFFLINE -> GlassButton("Retry now", { vm.retryNow() }, kind = ButtonKind.Glass, icon = Icons.Rounded.Refresh)
                     Phase.BLOCKED, Phase.UPDATE_REQUIRED, Phase.SETUP_REQUIRED -> Unit
@@ -92,7 +93,7 @@ fun HomeScreen(vm: AppViewModel) {
                     Spacer(Modifier.width(14.dp))
                     Column {
                         Text("Daily limit", style = MaterialTheme.typography.titleMedium)
-                        Text("$limit SMS segments per day", style = MaterialTheme.typography.bodyMedium, color = LocalGlass.current.textSecondary)
+                        Text("$limit messages per day · up to 100 characters each", style = MaterialTheme.typography.bodyMedium, color = LocalGlass.current.textSecondary)
                     }
                 }
             }
@@ -112,6 +113,28 @@ fun HomeScreen(vm: AppViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WaitingActions(vm: AppViewModel, st: GatewayState) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val g = LocalGlass.current
+    var checking by remember { mutableStateOf(false) }
+    // The spinner stops as soon as the gateway reports a newer check.
+    LaunchedEffect(st.lastCheckedAt) { checking = false }
+    LaunchedEffect(checking) { if (checking) { kotlinx.coroutines.delay(8000); checking = false } }
+    GlassButton("Refresh status", { checking = true; vm.refreshStatus() }, icon = Icons.Rounded.Refresh, loading = checking)
+    st.lastCheckedAt?.let {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Last checked " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(it)) + " · still waiting",
+            style = MaterialTheme.typography.bodySmall, color = g.textSecondary,
+        )
+    }
+    val exempt = remember { ctx.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName) }
+    if (!exempt) {
+        TextButton(onClick = { requestIgnoreBattery(ctx) }) { Text("Allow background activity for instant updates", color = Blue) }
     }
 }
 
@@ -182,7 +205,7 @@ fun JobRow(j: JobEntity) {
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(maskNumber(j.recipient), style = MaterialTheme.typography.titleMedium)
+            Text(j.recipient, style = MaterialTheme.typography.titleMedium)
             val detail = j.errorMessage ?: j.errorCode ?: relative(j.createdAt)
             Text(
                 listOfNotNull(j.simUsed?.let { "SIM $it" }, if (j.errorCode != null) j.errorCode else null, relative(j.createdAt)).distinct().joinToString(" · "),

@@ -43,12 +43,32 @@ fun SettingsScreen(vm: AppViewModel, open: (String) -> Unit) {
                 Text("Android limits how fast apps may send SMS; never go below 2.1 s.", style = MaterialTheme.typography.bodySmall, color = LocalGlass.current.textSecondary)
             }
             GlassDivider()
+            Column(Modifier.padding(vertical = 10.dp)) {
+                Text("Retry failed messages", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "If the phone is told a message was NOT sent (for example a network error), try again. A message that may already have been sent is never sent twice.",
+                    style = MaterialTheme.typography.bodySmall, color = LocalGlass.current.textSecondary,
+                )
+                Spacer(Modifier.height(10.dp))
+                Segmented(listOf(0 to "Off", 1 to "1×", 2 to "2×", 3 to "3×"), s.retryCount.coerceIn(0, 3), { n -> vm.updateSettings { it.copy(retryCount = n) } })
+                if (s.retryCount > 0) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("Wait before retrying", style = MaterialTheme.typography.bodyMedium, color = LocalGlass.current.textSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    Segmented(
+                        listOf(1000, 2000, 5000, 10000).map { it to "${it / 1000} s" },
+                        listOf(1000, 2000, 5000, 10000).minBy { kotlin.math.abs(it - s.retryDelayMs) },
+                        { ms -> vm.updateSettings { it.copy(retryDelayMs = ms) } },
+                    )
+                }
+            }
+            GlassDivider()
             SwitchRow("Delivery reports", "Ask the carrier to confirm delivery. Not every carrier supports this.", s.deliveryReports, { on -> vm.updateSettings { it.copy(deliveryReports = on) } })
             GlassDivider()
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Daily limit (all SIMs)", style = MaterialTheme.typography.titleMedium)
-                    Text(s.dailyLimit?.let { "$it segments / day" } ?: "No limit", style = MaterialTheme.typography.bodyMedium, color = LocalGlass.current.textSecondary)
+                    Text(s.dailyLimit?.let { "$it messages / day" } ?: "No limit", style = MaterialTheme.typography.bodyMedium, color = LocalGlass.current.textSecondary)
                 }
                 Stepper(s.dailyLimit, { v -> vm.updateSettings { it.copy(dailyLimit = v) } })
             }

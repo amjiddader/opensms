@@ -114,7 +114,7 @@ class GatewayService : Service() {
         val cm = getSystemService(ConnectivityManager::class.java)
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                (application as OpenSmsApp).container.gateway.reconnectNow()
+                (application as OpenSmsApp).container.gateway.onNetworkAvailable()
             }
         }
         netCallback = cb

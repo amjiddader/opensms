@@ -7,9 +7,13 @@ import com.wansaw.opensms.data.Settings
 
 /** Mirrors the backend recipient rules (docs/protocol/v1.md section 4). */
 sealed interface RecipientResult {
-    data class Ok(val e164: String, val callingCode: Int) : RecipientResult
+    /** [dial] is the number exactly as the API caller wrote it (separators removed): this is what gets dialled. */
+    data class Ok(val dial: String, val e164: String, val callingCode: Int) : RecipientResult
     data class Rejected(val code: String, val message: String) : RecipientResult
 }
+
+/** Maximum characters (Unicode code points) per message. Same limit as the backend. */
+const val MAX_MESSAGE_CHARS = 100
 
 object Recipient {
     private val util = PhoneNumberUtil.getInstance()
@@ -38,6 +42,6 @@ object Recipient {
         if (d.mode != "all" && number.countryCode !in Countries.callingCodes(d.countries)) {
             return RecipientResult.Rejected("destination_not_supported", "Destination country is not allowed on this device")
         }
-        return RecipientResult.Ok(e164, number.countryCode)
+        return RecipientResult.Ok(cleaned, e164, number.countryCode)
     }
 }

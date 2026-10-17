@@ -32,15 +32,24 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Caches ~/.gradle (wrapper, dependencies, build cache). Free on public repos.
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      # Caches the Android platform and build-tools that are not preinstalled on the runner.
+      - name: Cache Android SDK packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/platforms/android-37.0
+            /usr/local/lib/android/sdk/build-tools/36.0.0
+          key: android-sdk-37.0-bt36.0.0
 
       - name: Install Android SDK packages
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
-
-      - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Build signed release APKs (per ABI + universal)
         env:

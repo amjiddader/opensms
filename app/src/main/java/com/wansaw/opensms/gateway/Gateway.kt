@@ -10,6 +10,7 @@ import com.wansaw.opensms.data.*
 import com.wansaw.opensms.net.ApiClient
 import com.wansaw.opensms.net.ApiException
 import com.wansaw.opensms.net.NetworkException
+import com.wansaw.opensms.sms.MAX_MESSAGE_CHARS
 import com.wansaw.opensms.sms.Recipient
 import com.wansaw.opensms.sms.RecipientResult
 import com.wansaw.opensms.sms.SimInfo
@@ -61,6 +62,8 @@ data class GatewayState(
     val message: String? = null,
     val requestId: String? = null,
     val retryInSeconds: Int? = null,
+    /** When the app last asked the server whether the installation was approved (epoch ms). */
+    val lastCheckedAt: Long? = null,
 ) {
     val isOnline get() = phase == Phase.ONLINE
 }
@@ -123,9 +126,17 @@ class Gateway(
 
     val isRunning get() = loopJob?.isActive == true
 
-    /** Network came back or the user pressed "retry": skip the back-off. */
+    /** The user pressed "Refresh status" / "Retry now": skip any waiting and ask the server right away. */
     fun reconnectNow() {
         kick.trySend(Unit)
+    }
+
+    /** A network became available: only useful when we are not connected (a live socket notices a dead network itself). */
+    fun onNetworkAvailable() {
+        when (_state.value.phase) {
+            Phase.OFFLINE, Phase.WAITING_APPROVAL, Phase.LOGGING_IN -> kick.trySend(Unit)
+            else -> Unit
+        }
     }
 
     /** User pressed "request again" after a rejection. */
@@ -158,8 +169,10 @@ class Gateway(
         timezone = TimeZone.getDefault().id,
     )
 
+    @Volatile private var lastCheckedAt: Long? = null
+
     private fun set(phase: Phase, message: String? = null, requestId: String? = null, retryIn: Int? = null) {
-        _state.value = GatewayState(phase, message, requestId, retryIn)
+        _state.value = GatewayState(phase, message, requestId, retryIn, lastCheckedAt)
     }
 
     private suspend fun waitUntilSetupDone() {
@@ -214,7 +227,9 @@ class Gateway(
                     res.device?.let { onSummary(it) }
                     return true
                 }
-                wait = res.pollAfterSeconds.coerceIn(5, 120)
+                lastCheckedAt = System.currentTimeMillis()
+                set(Phase.WAITING_APPROVAL, requestId = rid)
+                wait = res.pollAfterSeconds.coerceIn(5, 10)
             } catch (e: ApiException) {
                 when (e.code) {
                     "install_rejected" -> {
@@ -227,7 +242,7 @@ class Gateway(
                         secure.clearInstallRequest()
                         return false
                     }
-                    else -> if (e.status == 429) wait = 60 else handleAuthError(e)
+                    else -> if (e.status == 429) wait = 6 else handleAuthError(e) // server allows one poll per 5 s
                 }
             } catch (_: NetworkException) {
                 wait = 15
@@ -366,6 +381,7 @@ class Gateway(
         })
         val session = Session(ws)
         sessionRef.set(session)
+        kick.tryReceive() // drop a stale "retry now" from before this connection
         var ready = false
         var heartbeat: Job? = null
         val readyTimeout = scope.launch {
@@ -571,12 +587,17 @@ class Gateway(
             finishRejected(base, JobState.EXPIRED, "expired", "The job expired before it reached the phone")
             return
         }
+        if (cmd.text.codePointCount(0, cmd.text.length) > MAX_MESSAGE_CHARS) {
+            finishRejected(base, JobState.FAILED, "message_too_long", "A message can have at most $MAX_MESSAGE_CHARS characters")
+            return
+        }
         val settings = prefs.settings.first().settings
         when (val r = Recipient.validate(cmd.to, settings)) {
             is RecipientResult.Rejected -> finishRejected(base, JobState.FAILED, r.code, r.message)
             is RecipientResult.Ok -> {
-                jobs.insert(base.copy(recipient = r.e164, text = cmd.text))
-                emit("sms.accepted", base.copy(recipient = r.e164), sim = null)
+                // The number is kept and dialled exactly as the API caller wrote it.
+                jobs.insert(base.copy(recipient = r.dial, text = cmd.text))
+                emit("sms.accepted", base.copy(recipient = r.dial), sim = null)
                 wake.trySend(Unit)
             }
         }
@@ -596,7 +617,7 @@ class Gateway(
         var lastMaintenance = 0L
         while (scope.isActive) {
             try {
-                val job = jobs.nextAccepted()
+                val job = jobs.nextAccepted(System.currentTimeMillis())
                 if (job == null) {
                     withTimeoutOrNull(30_000) { wake.receive() }
                     val now = System.currentTimeMillis()
@@ -639,8 +660,8 @@ class Gateway(
 
         val day = startOfDay()
         val limit = env.effectiveDailyLimit
-        if (limit != null && jobs.segmentsSince(day, 0) > limit) {
-            return fail(job, "quota_exceeded", "Daily segment limit reached", sim = null)
+        if (limit != null && jobs.messagesSince(day, 0) > limit) {
+            return fail(job, "quota_exceeded", "Daily message limit reached", sim = null)
         }
 
         val wanted = when (job.simRequested) {
@@ -648,11 +669,16 @@ class Gateway(
             "sim_2" -> listOf(2)
             else -> listOf(1, 2)
         }
-        val candidates = wanted.filter { slot ->
+        val usable = wanted.filter { slot ->
             val cfg = settings.sims.forSlot(slot)
-            val bit = 1 shl (slot - 1)
-            cfg.enabled && sims.isPresent(slot) && job.triedSims and bit == 0 &&
-                (cfg.dailyLimit == null || jobs.segmentsSince(day, slot) + job.segmentsEstimated <= cfg.dailyLimit)
+            cfg.enabled && sims.isPresent(slot) && (cfg.dailyLimit == null || jobs.messagesSince(day, slot) < cfg.dailyLimit)
+        }
+        // A retry prefers the SIM that has not been tried yet (if allowed); otherwise it tries the same SIM again.
+        val untried = usable.filter { job.triedSims and (1 shl (it - 1)) == 0 }
+        val candidates = when {
+            job.attemptNo <= 1 -> usable
+            settings.retryAlternativeSim && untried.isNotEmpty() -> untried
+            else -> usable.filter { it == job.simUsed }.ifEmpty { usable }
         }
         if (candidates.isEmpty()) {
             return fail(
@@ -666,7 +692,7 @@ class Gateway(
         val parts = sender.divide(job.text, slot) ?: return fail(job, "sim_not_available", "SIM $slot is not available")
         if (parts.isEmpty() || parts.size > 255) return fail(job, "message_too_long", "Message cannot be split into SMS parts")
 
-        val attempt = if (job.triedSims == 0) job.attemptId else newAttemptId()
+        val attempt = if (job.attemptNo <= 1) job.attemptId else newAttemptId()
         val submitting = job.copy(
             state = JobState.SUBMITTING, attemptId = attempt, simUsed = slot, triedSims = job.triedSims or (1 shl (slot - 1)),
             partsTotal = parts.size, partsOk = 0, partsFailed = 0, partsDelivered = 0, deliveryFailed = false,
@@ -691,7 +717,7 @@ class Gateway(
         if (candidates.size == 1) return candidates[0]
         return when (s.simStrategy) {
             "preferred" -> s.preferredSim?.removePrefix("sim_")?.toIntOrNull()?.takeIf { it in candidates } ?: candidates[0]
-            "least_used" -> candidates.minBy { jobs.segmentsSince(day, it) }
+            "least_used" -> candidates.minBy { jobs.messagesSince(day, it) }
             else -> (prefs.nextRoundRobin() + 1).takeIf { it in candidates } ?: candidates[0]
         }
     }
@@ -702,8 +728,8 @@ class Gateway(
 
     suspend fun onPartSent(jobId: String, attemptId: String, resultCode: Int) {
         val ok = resultCode == Activity.RESULT_OK
-        val (code, _) = if (ok) "" to false else SmsError.fromResult(resultCode)
-        val job = jobs.recordPart(jobId, attemptId, ok, code, "Radio result $resultCode") ?: return
+        val failure = if (ok) null else SmsError.fromResult(resultCode)
+        val job = jobs.recordPart(jobId, attemptId, ok, failure?.code, failure?.message) ?: return
         if (job.partsOk + job.partsFailed >= job.partsTotal && job.state == JobState.SUBMITTING) finalizeAttempt(job)
     }
 
@@ -717,17 +743,15 @@ class Gateway(
                 emit("sms.sent", sent, segmentsTotal = job.partsTotal, segmentsSent = job.partsOk)
             }
             job.partsOk == 0 -> {
-                val retryable = job.errorCode in RETRYABLE
-                val untried = (1..2).filter { slot ->
-                    val bit = 1 shl (slot - 1)
-                    job.triedSims and bit == 0 && settings.sims.forSlot(slot).enabled && sims.isPresent(slot) &&
-                        (job.simRequested == "auto" || job.simRequested == "sim_$slot")
-                }
-                if (retryable && settings.retryAlternativeSim && untried.isNotEmpty()) {
-                    jobs.update(job.copy(state = JobState.ACCEPTED)) // a new attempt on the other SIM
-                    wake.trySend(Unit)
+                // Confirmed failure: nothing was sent, so a retry can never double-send.
+                val retryable = job.errorCode in RETRYABLE_CODES
+                if (retryable && job.attemptNo <= settings.retryCount) {
+                    val delayMs = settings.retryDelayMs.coerceIn(0, 60_000).toLong()
+                    jobs.update(job.copy(state = JobState.ACCEPTED, attemptNo = job.attemptNo + 1, notBefore = now + delayMs))
+                    scope.launch { delay(delayMs + 50); wake.trySend(Unit) }
                 } else {
-                    fail(job, job.errorCode ?: "send_failed", job.errorMessage ?: "The message could not be sent")
+                    val tries = if (job.attemptNo > 1) " (after ${job.attemptNo} attempts)" else ""
+                    fail(job, job.errorCode ?: "send_failed", ((job.errorMessage ?: "The message could not be sent") + tries))
                 }
             }
             else -> {
@@ -819,6 +843,11 @@ class Gateway(
         private const val TAG = "Gateway"
         private const val MIN_PACING_MS = 2100
         private const val STALE_SUBMIT_MS = 120_000L
-        private val RETRYABLE = setOf("generic_failure", "radio_off", "no_service")
+        /** error_codes (see SmsError) that justify an automatic retry. */
+        private val RETRYABLE_CODES = setOf(
+            "generic_failure", "radio_off", "no_service", "radio_not_available", "network_reject", "invalid_state", "no_memory",
+            "system_error", "modem_error", "network_error", "internal_error", "no_resources", "blocked_during_emergency",
+            "send_retry_failed", "remote_exception", "rate_limited", "network_not_ready", "blocked_due_to_call", "access_barred", "ril_error",
+        )
     }
 }

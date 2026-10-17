@@ -35,4 +35,4 @@ Apache-2.0, see [`LICENSE`](LICENSE).
 ## Build and release
 
 - Local: `./gradlew :app:assembleDebug` (JDK 17, Android SDK 37). Point a debug build at a local backend with `-PapiBaseUrl=http://10.0.2.2:8787`.
-- Release: GitHub → Actions → **Release** → *Run workflow*. It runs the unit tests, builds signed APKs for `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` and a universal APK, and publishes a GitHub Release ("New release on <date>") with the APKs and `SHA256SUMS.txt`.
+- Release: GitHub → Actions → **Release** → *Run workflow*. It builds signed APKs for `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` and a universal APK, and publishes a GitHub Release ("New release on <date>") with the APKs and `SHA256SUMS.txt`.

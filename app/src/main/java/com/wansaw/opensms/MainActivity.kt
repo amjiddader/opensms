@@ -44,7 +44,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        vm.ensureRunning()
-        vm.refreshSims()
+        vm.onForeground()
     }
 }

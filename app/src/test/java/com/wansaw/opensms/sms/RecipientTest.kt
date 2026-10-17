@@ -20,5 +20,10 @@ class RecipientTest {
     @Test fun otherCountryRefused() = assertEquals("destination_not_supported", code("+14155552671"))
     @Test fun allModeAcceptsOthers() = assertTrue(Recipient.validate("+14155552671", india.copy(destination = Destination("all"))) is RecipientResult.Ok)
     @Test fun multipleMode() = assertEquals("+14155552671", ok("+14155552671", india.copy(destination = Destination("multiple", listOf("IN", "US")))))
+    @Test fun numberIsDialledExactlyAsGiven() {
+        assertEquals("9419012345", (Recipient.validate("9419012345", india) as RecipientResult.Ok).dial)
+        assertEquals("+919419012345", (Recipient.validate("+91 94190-12345", india) as RecipientResult.Ok).dial)
+        assertEquals("919419012345", (Recipient.validate("(91) 9419012345", india) as RecipientResult.Ok).dial)
+    }
     @Test fun bareNumberNeedsHomeCountry() = assertEquals("device_not_configured", code("9876543210", Settings()))
 }

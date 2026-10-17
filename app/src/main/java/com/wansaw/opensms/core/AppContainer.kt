@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.room.Room
 import com.wansaw.opensms.BuildConfig
 import com.wansaw.opensms.data.AppDatabase
+import com.wansaw.opensms.data.MIGRATION_1_2
 import com.wansaw.opensms.data.Prefs
 import com.wansaw.opensms.data.SecureStore
 import com.wansaw.opensms.gateway.Gateway
@@ -19,7 +20,7 @@ class AppContainer(app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val prefs = Prefs(app)
     val secure = SecureStore(app)
-    val db: AppDatabase = Room.databaseBuilder(app, AppDatabase::class.java, "opensms.db").build()
+    val db: AppDatabase = Room.databaseBuilder(app, AppDatabase::class.java, "opensms.db").addMigrations(MIGRATION_1_2).build()
     val api = ApiClient(BuildConfig.API_BASE_URL, secret = { secure.deviceSecret })
     val sims = SimInfo(app)
     val sender = SmsSender(app, sims)
