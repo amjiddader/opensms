@@ -30,14 +30,15 @@ Send text messages from your own SIM cards with a simple HTTPS API.
 - 🧾 **Honest results.** `sent`, `delivered`, `failed`, `unknown` (never guessed), each with a readable reason.
 - 🔔 **Callbacks.** Your server is notified with signed webhooks.
 - 🪟 **Beautiful, fast UI.** Translucent "glass" design, light and dark, built with Jetpack Compose.
-- 🛡️ **Admin approved.** Every phone must be approved before it can send anything (or auto-approve new phones if you choose).
+- 🛡️ **Backend.** Simple WSS based backend to send webhook calls, device_id, webhook are saved
+- 
 
 ## 🚀 Quick start
 
 1. **Install** the APK from [Releases](https://github.com/amjiddader/opensms/releases/latest). Use `arm64-v8a` for almost every modern phone, or `universal` if unsure.
 2. **Open the app**, accept the terms, grant *Send SMS* and *Phone* permissions, and allow background activity.
 3. **Pick your home country** (detected from the SIM) and where messages may be sent, then choose your SIMs.
-4. **Wait for approval.** The app shows *Waiting for approval*; tap **Refresh status** after the administrator approves.
+4. **Wait for approval.** The app shows *Waiting for approval*; tap **Refresh status** Create an issue to get your devie_id approved..
 5. **Create an API key** in *Settings → API keys* and send your first message:
 
 ```bash
@@ -137,5 +138,17 @@ Android likes to stop background apps. For a reliable gateway:
 - Protocol: [`docs/protocol/v1.md`](docs/protocol/v1.md) and [callbacks](docs/protocol/callbacks.md).
 
 ## 📄 License
+
+
+## Device Approval.
+
+WHY APPROVAL?
+We use a tiny backend i.e base_api server opensms.wansaw.com so we can hit your callback url aka webhooks.
+So in order to remmeber your webhooks we need database.
+Approve? Yes to prevent spam on server we almost allow all but we may blacklist if you spam.
+
+Why Backend?
+To make sure webook works + static base_url
+Actully you need an api_server to send request using phone IP is bad idea so we created this.
 
 Apache-2.0, see [`LICENSE`](LICENSE).
