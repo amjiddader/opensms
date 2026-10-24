@@ -47,6 +47,12 @@ data class Settings(
     @SerialName("pacing_interval_ms") val pacingIntervalMs: Int = 2000,
     @SerialName("delivery_reports") val deliveryReports: Boolean = false,
     @SerialName("history_retention_days") val historyRetentionDays: Int = 30,
+    /** Reverse SMS (ReverseOTP): forward incoming SMS that match [revsmsHint] to the callback URL. */
+    @SerialName("revsms_enabled") val revsmsEnabled: Boolean = false,
+    /** One global hint for both SIMs, e.g. "ABC#". Matched case-insensitively. */
+    @SerialName("revsms_hint") val revsmsHint: String = "",
+    /** "prefix" (message starts with the hint) or "contains". */
+    @SerialName("revsms_match") val revsmsMatch: String = "prefix",
 ) {
     val isConfigured: Boolean
         get() = !homeCountry.isNullOrBlank() && (destination.mode == "all" || destination.countries.isNotEmpty())

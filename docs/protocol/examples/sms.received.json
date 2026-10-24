@@ -1,0 +1,10 @@
+{
+  "type": "sms.received",
+  "event_id": "01J8Z0Q5M2K3T7X9A1B2C3D4E6",
+  "ts": 1760000000123,
+  "received_at": 1760000000000,
+  "sim": 2,
+  "from": "+919812345678",
+  "body": "ABC# 482913",
+  "hint": "ABC#"
+}

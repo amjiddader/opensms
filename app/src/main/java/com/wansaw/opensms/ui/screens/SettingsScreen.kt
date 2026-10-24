@@ -85,6 +85,8 @@ fun SettingsScreen(vm: AppViewModel, open: (String) -> Unit) {
             NavRow(Icons.Rounded.Key, Orange, "API keys") { open("keys") }
             GlassDivider()
             NavRow(Icons.Rounded.Webhook, Purple, "Callbacks") { open("callback") }
+            GlassDivider()
+            NavRow(Icons.Rounded.MarkEmailRead, Teal, "Reverse SMS", if (s.revsmsEnabled) "On" else "Off") { open("revsms") }
         }
 
         SectionLabel("Device")

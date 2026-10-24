@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -45,10 +46,20 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Personal SMS gateway: keeps one outbound WebSocket open to the owner's own backend and sends the SMS it requests" />
+                android:value="Personal SMS gateway: keeps one outbound WebSocket open to the owner's own backend, sends the SMS it requests and forwards incoming SMS that match the owner's Reverse SMS hint" />
         </service>
 
         <receiver android:name=".sms.SmsResultReceiver" android:exported="false" />
+
+        <!-- Reverse SMS: only the system (BROADCAST_SMS) may deliver incoming messages to this receiver. -->
+        <receiver
+            android:name=".sms.SmsReceivedReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
 
         <receiver android:name=".gateway.BootReceiver" android:exported="true">
             <intent-filter>

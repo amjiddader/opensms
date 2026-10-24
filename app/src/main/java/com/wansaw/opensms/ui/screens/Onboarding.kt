@@ -221,6 +221,8 @@ private fun PermissionsStep(tick: Int, onChanged: () -> Unit) {
     GlassCard(Modifier.fillMaxWidth()) {
         PermRow(Icons.Rounded.Sms, Green, "Send SMS", "Required to send messages through your SIM.", granted(ctx, Manifest.permission.SEND_SMS), true) { launcher.launch(Manifest.permission.SEND_SMS) }
         GlassDivider()
+        PermRow(Icons.Rounded.MarkEmailRead, Teal, "Receive SMS", "Optional. Only needed for Reverse SMS: lets the app see incoming messages that start with your hint.", granted(ctx, Manifest.permission.RECEIVE_SMS), false) { launcher.launch(Manifest.permission.RECEIVE_SMS) }
+        GlassDivider()
         PermRow(Icons.Rounded.SimCard, Blue, "Phone & SIM info", "Required to see your SIMs, carriers and country.", granted(ctx, Manifest.permission.READ_PHONE_STATE), true) { launcher.launch(Manifest.permission.READ_PHONE_STATE) }
         if (Build.VERSION.SDK_INT >= 33) {
             GlassDivider()

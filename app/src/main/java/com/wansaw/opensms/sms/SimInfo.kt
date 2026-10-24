@@ -28,6 +28,12 @@ class SimInfo(private val context: Context) {
         else SimReport(slot, true, i.carrierName?.toString(), i.displayName?.toString(), i.countryIso?.uppercase())
     }
 
+    /** Maps the subscription of an incoming SMS to sim_1 / sim_2. [slotIndexHint] is the 0-based slot from the broadcast, or -1. */
+    fun slotForSubscription(subId: Int, slotIndexHint: Int = -1): Int? {
+        if (subId >= 0) listOf(1, 2).firstOrNull { subscriptionId(it) == subId }?.let { return it }
+        return (slotIndexHint + 1).takeIf { it in 1..2 }
+    }
+
     fun isPresent(slot: Int) = info(slot) != null
 
     /** ISO country of the first inserted SIM, used to suggest the home country. */

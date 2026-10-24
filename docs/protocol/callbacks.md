@@ -10,7 +10,7 @@ When callbacks are switched off, nothing is posted.
 
 | Header | Meaning |
 | --- | --- |
-| `X-OpenSMS-Event` | `sms.sent`, `sms.delivered`, `sms.failed`, `sms.unknown` or `sms.test` |
+| `X-OpenSMS-Event` | `sms.sent`, `sms.delivered`, `sms.failed`, `sms.unknown`, `sms.received` or `sms.test` |
 | `X-OpenSMS-Delivery` | unique delivery id (`cbd_…`); the same id is used for retries – **deduplicate on it** |
 | `X-OpenSMS-Timestamp` | Unix seconds |
 | `X-OpenSMS-Signature` | `v1=` + hex `HMAC_SHA256(secret, timestamp + "." + rawBody)` |
@@ -61,6 +61,35 @@ The message text and the full number are never included (the number is masked); 
 | `sms.test` | – | sent by the "Test callback" button (`data.message`) |
 
 A later event can supersede an earlier one for the same job (for example `sms.unknown` → `sms.sent`).
+
+## ReverseOTP: `sms.received`
+
+With **Reverse SMS** switched on in the app (Settings → Reverse SMS), every SMS received on either SIM whose text matches the global hint (for example `ABC#`) is forwarded to the same callback URL, signed in the same way. Use it to let a user prove they own a phone number: they send `ABC# <code>` to your gateway number and you receive the sender's number.
+
+```json
+{
+  "id": "cbd_01k7z0q5m2k3t7x9a1b2c3d4e8",
+  "event": "sms.received",
+  "created_at": "2026-10-17T08:05:01.450Z",
+  "data": {
+    "device_id": "dev_01k7z0q5m2k3t7x9a1b2c3d4e1",
+    "sim": "sim_2",
+    "from": "+919812345678",
+    "message": "ABC# 482913",
+    "hint": "ABC#",
+    "received_at": "2026-10-17T08:05:00.000Z",
+    "forwarded_at": "2026-10-17T08:05:01.450Z",
+    "job_id": null
+  }
+}
+```
+
+* `from` is the real sender address and `message` the complete text (these are the only events that contain them). `sim` is the SIM that received it (`null` if unknown). `received_at` is when the phone got the SMS; `forwarded_at` when the backend queued the callback.
+* Matching is done on the phone: case-insensitive, either *starts with* (default) or *contains* the hint. All other messages are ignored and never leave the phone.
+* There is **no rate limit**: every matching message produces one callback. Deduplicate on `X-OpenSMS-Delivery` (retries reuse the id).
+* Delivery, signing, retries and the delivery log are the same as for the other events. `data.from` and `data.message` are stored encrypted and erased from the delivery log once the delivery is final.
+* If the phone is offline, the message is kept and forwarded when it reconnects (up to 7 days). It needs the callback to be enabled; otherwise the message is dropped.
+* Android does not allow a normal app to delete or hide incoming messages, so a forwarded message also remains in the phone's own SMS app.
 
 ## Delivery rules
 

@@ -146,6 +146,10 @@ abstract class OutboxDao {
     @Query("DELETE FROM outbox WHERE eventId IN (:ids)")
     abstract suspend fun delete(ids: List<String>)
 
+    /** Reverse-SMS events have no job; unacknowledged ones older than [before] are dropped. */
+    @Query("DELETE FROM outbox WHERE jobId IS NULL AND createdAt < :before")
+    abstract suspend fun pruneInbound(before: Long)
+
     @Query("DELETE FROM outbox")
     abstract suspend fun clear()
 }

@@ -12,6 +12,7 @@ import com.wansaw.opensms.net.ApiException
 import com.wansaw.opensms.net.NetworkException
 import com.wansaw.opensms.sms.MAX_MESSAGE_CHARS
 import com.wansaw.opensms.sms.Recipient
+import com.wansaw.opensms.sms.RevSms
 import com.wansaw.opensms.sms.RecipientResult
 import com.wansaw.opensms.sms.SimInfo
 import com.wansaw.opensms.sms.SmsError
@@ -551,6 +552,32 @@ class Gateway(
         sessionRef.get()?.takeIf { it.accepting }?.let { uploadOutbox(it, force = false) }
     }
 
+    /**
+     * Reverse SMS (ReverseOTP). Called by [com.wansaw.opensms.sms.SmsReceivedReceiver] for every incoming SMS.
+     * Messages that do not match the global hint are ignored (nothing is stored or sent). A match is written to
+     * the outbox first and uploaded as `sms.received`; it stays there until the server acknowledges it.
+     */
+    suspend fun onSmsReceived(from: String, body: String, slot: Int?, receivedAt: Long) {
+        if (!prefs.setupDone.first() || !prefs.gatewayEnabled.first()) return
+        val cfg = prefs.settings.first().settings
+        if (!RevSms.matches(body, cfg.revsmsHint, cfg.revsmsMatch, cfg.revsmsEnabled) || from.isBlank()) return
+        val ts = nextTs()
+        val id = newEventId(ts)
+        val json = buildJsonObject {
+            put("type", "sms.received")
+            put("event_id", id)
+            put("ts", ts)
+            put("received_at", if (receivedAt > 0) receivedAt else ts)
+            slot?.let { put("sim", it) }
+            put("from", from.take(64))
+            put("body", body.take(RevSms.MAX_BODY))
+            put("hint", cfg.revsmsHint.trim().take(32))
+        }
+        outbox.pruneInbound(System.currentTimeMillis() - INBOUND_KEEP_MS)
+        outbox.insert(EventEntity(id, null, json.toString(), ts))
+        sessionRef.get()?.takeIf { it.accepting }?.let { uploadOutbox(it, force = false) }
+    }
+
     /** Sends everything not yet acknowledged (in order, <=100 per frame). */
     private suspend fun uploadOutbox(session: Session, force: Boolean) {
         flushLock.withLock {
@@ -843,6 +870,8 @@ class Gateway(
         private const val TAG = "Gateway"
         private const val MIN_PACING_MS = 2100
         private const val STALE_SUBMIT_MS = 120_000L
+        /** Unacknowledged Reverse-SMS events are kept this long while the phone is offline. */
+        private const val INBOUND_KEEP_MS = 7 * 24 * 3600 * 1000L
         /** error_codes (see SmsError) that justify an automatic retry. */
         private val RETRYABLE_CODES = setOf(
             "generic_failure", "radio_off", "no_service", "radio_not_available", "network_reject", "invalid_state", "no_memory",
