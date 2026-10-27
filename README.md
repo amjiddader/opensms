@@ -2,7 +2,7 @@
 
 # 📱 OpenSMS
 
-**Turn your own Android phone into a private SMS gateway.**
+**Turn your own Android phone into a private SMS gateway.**\
 Send text messages from your own SIM cards with a simple HTTPS API.
 
 ![Platform](https://img.shields.io/badge/platform-Android%208%2B-3DDC84?logo=android&logoColor=white)
