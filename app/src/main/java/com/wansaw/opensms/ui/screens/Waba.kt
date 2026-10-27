@@ -165,7 +165,7 @@ fun WabaScreen(vm: AppViewModel, back: () -> Unit) {
         SectionLabel("How it works")
         GlassCard(Modifier.fillMaxWidth()) {
             Text(
-                "Your server calls POST /v1/whatsapp/init with your API key and gets a code and a message such as “${w.exampleMessage ?: "${'$'}identifier#123456789"}”. " +
+                "Your server calls POST /v1/whatsapp/init with your API key and gets a code and a message such as “${w.exampleMessage ?: "${'$'}identifier#v0xxxxxxxxxxxxx"}”. " +
                     "Your user sends that message from WhatsApp to ${w.wabaNumber ?: "the OpenSMS WhatsApp number"} and your webhook receives their phone number.",
                 style = MaterialTheme.typography.bodyMedium,
             )
