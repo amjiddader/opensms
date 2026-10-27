@@ -23,15 +23,13 @@ Send text messages from your own SIM cards with a simple HTTPS API.
 
 ## ✨ What you get
 
-- 🔐 **Private by design.** No cloud accounts. The phone connects *outward* to your own backend; nothing is exposed on your network.
+- 🔐 **Private by design.** No cloud accounts. Your phone is your hashboard (We run tiny backend to provide static API_URL.).
 - 📶 **Dual SIM aware.** Use SIM 1, SIM 2 or both; alternate between them, prefer one, or pick the one used least.
 - 🧮 **Message quotas that make sense.** Daily limits count *messages*, per SIM and for the phone. The API tells you what is sent, pending and left.
 - 🔁 **Smart retries.** If Android confirms a message was *not* sent, the app retries (default: once after 1 second, preferring the other SIM). A message that may already have gone out is never sent twice.
 - 🧾 **Honest results.** `sent`, `delivered`, `failed`, `unknown` (never guessed), each with a readable reason.
 - 🔔 **Callbacks.** Your server is notified with signed webhooks.
 - 💬 **WhatsApp OTP.** Give your phone a public identifier (for example `wansaw`), and let users verify their number by sending `wansaw#<code>` on WhatsApp. Configure it in *Settings → WhatsApp OTP* (identifier, own webhook URL and secret, counters, log). See [docs/protocol/whatsapp-otp.md](docs/protocol/whatsapp-otp.md).
-- 🪟 **Beautiful, fast UI.** Translucent "glass" design, light and dark, built with Jetpack Compose.
-- 🛡️ **Admin approved.** Every phone must be approved before it can send anything (or auto-approve new phones if you choose).
 
 ## 🚀 Quick start
 
@@ -129,7 +127,7 @@ Android likes to stop background apps. For a reliable gateway:
 
 - Message text stays on the phone only until the message is sent. The backend keeps it encrypted and only until the phone accepts it; it is never written to the database. Backups are disabled; credentials stay in the Android Keystore.
 - The `opensms.jks` signing key in this repository is **intentionally public** (personal-use project). Do not treat the APK signature as proof of trust; trust comes from administrator approval.
-- **No API keys or secrets belong in this repository.** The only build-time setting is the backend URL.
+- **BACKEND.** A tiny backend using WSS to connect your app so you get static public API_URL instead of your phone's IP..
 
 ## 🛠️ Build and release
 
