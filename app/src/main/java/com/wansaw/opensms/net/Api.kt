@@ -101,6 +101,29 @@ class ApiClient(
         )
     }
 
+    // ---- WhatsApp OTP ---------------------------------------------------------------------------
+
+    suspend fun waba(): WabaState = ok("GET", "/v1/devices/me/waba")
+    suspend fun putWaba(identifier: String?, enabled: Boolean?): WabaState =
+        ok("PUT", "/v1/devices/me/waba", AppJson.encodeToString(WabaPut.serializer(), WabaPut(identifier, enabled)))
+
+    suspend fun wabaAvailability(identifier: String): WabaAvailability =
+        ok("GET", "/v1/devices/me/waba/availability?identifier=" + java.net.URLEncoder.encode(identifier, "UTF-8"))
+
+    suspend fun putWabaCallback(url: String?): WabaState =
+        ok("PUT", "/v1/devices/me/waba/callback", AppJson.encodeToString(WabaUrlPut.serializer(), WabaUrlPut(url)))
+
+    suspend fun rotateWabaSecret(): WabaState = ok("POST", "/v1/devices/me/waba/callback/secret/rotate")
+    suspend fun wabaLog(): List<WabaLogEntry> = ok<WabaLogList>("GET", "/v1/devices/me/waba/log?limit=20").data
+    suspend fun testWabaCallback(): TestResult {
+        val o = ok<JsonObject>("POST", "/v1/devices/me/waba/callback/test")
+        return TestResult(
+            (o["ok"] as? JsonPrimitive)?.booleanOrNull == true,
+            (o["status_code"] as? JsonPrimitive)?.intOrNull,
+            (o["error"] as? JsonPrimitive)?.contentOrNull,
+        )
+    }
+
     // ---- API keys -------------------------------------------------------------------------------
 
     suspend fun keys(): List<ApiKey> = ok<KeyList>("GET", "/v1/keys").data

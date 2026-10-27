@@ -67,6 +67,7 @@ fun MainScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
                     "keys" -> KeysScreen(vm) { sub = null }
                     "callback" -> CallbackScreen(vm) { sub = null }
                     "revsms" -> ReverseSmsScreen(vm) { sub = null }
+                    "waba" -> WabaScreen(vm) { sub = null }
                     "reliability" -> ReliabilityScreen { sub = null }
                     "about" -> AboutScreen(vm) { sub = null }
                 }

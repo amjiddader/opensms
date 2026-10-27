@@ -10,7 +10,7 @@ When callbacks are switched off, nothing is posted.
 
 | Header | Meaning |
 | --- | --- |
-| `X-OpenSMS-Event` | `sms.sent`, `sms.delivered`, `sms.failed`, `sms.unknown`, `sms.received` or `sms.test` |
+| `X-OpenSMS-Event` | `sms.sent`, `sms.delivered`, `sms.failed`, `sms.unknown`, `sms.received`, `sms.test`, `whatsapp.verified` or `whatsapp.test` |
 | `X-OpenSMS-Delivery` | unique delivery id (`cbd_…`); the same id is used for retries – **deduplicate on it** |
 | `X-OpenSMS-Timestamp` | Unix seconds |
 | `X-OpenSMS-Signature` | `v1=` + hex `HMAC_SHA256(secret, timestamp + "." + rawBody)` |
@@ -91,8 +91,36 @@ With **Reverse SMS** switched on in the app (Settings → Reverse SMS), every SM
 * If the phone is offline, the message is kept and forwarded when it reconnects (up to 7 days). It needs the callback to be enabled; otherwise the message is dropped.
 * Android does not allow a normal app to delete or hide incoming messages, so a forwarded message also remains in the phone's own SMS app.
 
+## WhatsApp OTP: `whatsapp.verified`
+
+Sent when a user completes a WhatsApp verification (see [whatsapp-otp.md](whatsapp-otp.md)). It goes to the **separate WhatsApp webhook URL** configured in the app (Settings → WhatsApp OTP) and is signed with that screen's own secret (`ows_…`), using the same headers and algorithm as above. Nothing is sent if no URL is set (poll `GET /v1/whatsapp/sessions/{id}` instead), and nothing is sent if the phone was offline for more than 30 minutes.
+
+```json
+{
+  "id": "cbd_01k8…",
+  "event": "whatsapp.verified",
+  "created_at": "2026-10-28T10:00:41.200Z",
+  "data": {
+    "status": "success",
+    "session_id": "wvs_k3m9x1q7t5a2c8d4",
+    "ref": "login-8841",
+    "code": "482913057",
+    "message": "wansaw#482913057",
+    "identifier": "wansaw",
+    "phone": "+919812345678",
+    "name": "Asha",
+    "device_id": "dev_01k7…",
+    "verified_at": "2026-10-28T10:00:41.200Z"
+  }
+}
+```
+
+* `phone` and `name` (WhatsApp profile name) are stored encrypted and erased from the delivery log once the delivery is final.
+* **Short retry schedule:** immediately, then after 5 s, 30 s and 2 min (4 attempts), because codes expire quickly. Deduplicate on `X-OpenSMS-Delivery`.
+* `whatsapp.test` is sent by the "Send test event" button.
+
 ## Delivery rules
 
 * Success = HTTP 2xx within 10 seconds. Redirects are **not** followed (a 3xx counts as a failure).
-* Retries: after 30 s, 2 min, 10 min, 1 h and 6 h (6 attempts in total); then the delivery is marked `failed` (visible in the app and the admin dashboard).
+* Retries (SMS events): after 30 s, 2 min, 10 min, 1 h and 6 h (6 attempts in total); WhatsApp events use their own short schedule (above); then the delivery is marked `failed` (visible in the app and the admin dashboard).
 * URL rules: public `https://`, port 443, a domain name (no IP addresses, `localhost`, `.local`/`.internal` names), no credentials in the URL.

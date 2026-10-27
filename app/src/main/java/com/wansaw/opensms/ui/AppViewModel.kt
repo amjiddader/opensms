@@ -168,6 +168,56 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         guarded { c.api.rotateCallbackSecret() }.onSuccess { _callback.value = Async(false, it); toast("Signing secret rotated") }.onFailure { toast(it.message ?: "Failed") }
     }
 
+    // ---- WhatsApp OTP -------------------------------------------------------------------------
+
+    private val _waba = MutableStateFlow(Async<WabaState>())
+    val waba: StateFlow<Async<WabaState>> = _waba
+    private val _wabaLog = MutableStateFlow<List<WabaLogEntry>>(emptyList())
+    val wabaLog: StateFlow<List<WabaLogEntry>> = _wabaLog
+    private val _wabaBusy = MutableStateFlow(false)
+    val wabaBusy: StateFlow<Boolean> = _wabaBusy
+    /** Result of the last availability check: the identifier it was for, and the answer. */
+    private val _wabaAvail = MutableStateFlow<WabaAvailability?>(null)
+    val wabaAvail: StateFlow<WabaAvailability?> = _wabaAvail
+
+    fun loadWaba() = viewModelScope.launch {
+        _waba.value = _waba.value.copy(loading = true, error = null)
+        guarded { c.api.waba() }.onSuccess { _waba.value = Async(false, it) }.onFailure { _waba.value = Async(false, _waba.value.data, it.message) }
+        guarded { c.api.wabaLog() }.onSuccess { _wabaLog.value = it }
+    }
+
+    fun checkWabaIdentifier(identifier: String) = viewModelScope.launch {
+        guarded { c.api.wabaAvailability(identifier) }.onSuccess { _wabaAvail.value = it.copy(identifier = identifier.trim().lowercase()) }
+    }
+
+    fun clearWabaAvailability() { _wabaAvail.value = null }
+
+    fun saveWaba(identifier: String?, enabled: Boolean?, okMessage: String) = viewModelScope.launch {
+        _wabaBusy.value = true
+        guarded { c.api.putWaba(identifier, enabled) }
+            .onSuccess { _waba.value = Async(false, it); _wabaAvail.value = null; toast(okMessage) }
+            .onFailure { toast(it.message ?: "Failed") }
+        _wabaBusy.value = false
+    }
+
+    fun saveWabaCallback(url: String) = viewModelScope.launch {
+        guarded { c.api.putWabaCallback(url.trim().ifBlank { null }) }
+            .onSuccess { _waba.value = Async(false, it); toast("Webhook saved") }
+            .onFailure { toast(it.message ?: "Failed") }
+    }
+
+    fun rotateWabaSecret() = viewModelScope.launch {
+        guarded { c.api.rotateWabaSecret() }.onSuccess { _waba.value = Async(false, it); toast("Signing secret rotated") }.onFailure { toast(it.message ?: "Failed") }
+    }
+
+    fun testWabaCallback() = viewModelScope.launch {
+        _testing.value = true
+        guarded { c.api.testWabaCallback() }.onSuccess {
+            toast(if (it.ok) "Test delivered (HTTP ${it.statusCode ?: 200})" else "Test failed: ${it.error ?: "HTTP ${it.statusCode}"}")
+        }.onFailure { toast(it.message ?: "Failed") }
+        _testing.value = false
+    }
+
     // ---- reset --------------------------------------------------------------------------------
 
     fun resetApp(done: () -> Unit) = viewModelScope.launch {

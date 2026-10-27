@@ -199,6 +199,52 @@ data class CallbackDelivery(
 data class DeliveryList(val data: List<CallbackDelivery> = emptyList())
 
 @Serializable
+data class WabaCallback(val url: String? = null, val secret: String? = null)
+
+@Serializable
+data class WabaStats(
+    @SerialName("verified_total") val verifiedTotal: Int = 0,
+    @SerialName("verified_24h") val verified24h: Int = 0,
+    @SerialName("failed_24h") val failed24h: Int = 0,
+)
+
+/** WhatsApp OTP (Reverse OTP over WhatsApp) state of this phone, from GET /v1/devices/me/waba. */
+@Serializable
+data class WabaState(
+    val identifier: String? = null,
+    val enabled: Boolean = false,
+    @SerialName("can_change_at") val canChangeAt: String? = null,
+    @SerialName("platform_enabled") val platformEnabled: Boolean = false,
+    @SerialName("waba_number") val wabaNumber: String? = null,
+    @SerialName("example_message") val exampleMessage: String? = null,
+    @SerialName("code_length") val codeLength: Int = 9,
+    @SerialName("code_ttl_seconds") val codeTtlSeconds: Int = 300,
+    val callback: WabaCallback = WabaCallback(),
+    val stats: WabaStats = WabaStats(),
+)
+
+@Serializable
+data class WabaPut(val identifier: String? = null, val enabled: Boolean? = null)
+
+@Serializable
+data class WabaUrlPut(val url: String? = null)
+
+@Serializable
+data class WabaAvailability(val available: Boolean = false, val identifier: String? = null, val reason: String? = null)
+
+@Serializable
+data class WabaLogEntry(
+    val id: String = "",
+    val outcome: String = "",
+    val identifier: String? = null,
+    val phone: String? = null,
+    val at: String? = null,
+)
+
+@Serializable
+data class WabaLogList(val data: List<WabaLogEntry> = emptyList())
+
+@Serializable
 data class ApiErrorBody(val error: ApiErrorDetail? = null)
 
 @Serializable

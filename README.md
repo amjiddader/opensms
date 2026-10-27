@@ -29,6 +29,7 @@ Send text messages from your own SIM cards with a simple HTTPS API.
 - 🔁 **Smart retries.** If Android confirms a message was *not* sent, the app retries (default: once after 1 second, preferring the other SIM). A message that may already have gone out is never sent twice.
 - 🧾 **Honest results.** `sent`, `delivered`, `failed`, `unknown` (never guessed), each with a readable reason.
 - 🔔 **Callbacks.** Your server is notified with signed webhooks.
+- 💬 **WhatsApp OTP.** Give your phone a public identifier (for example `wansaw`), and let users verify their number by sending `wansaw#<code>` on WhatsApp. Configure it in *Settings → WhatsApp OTP* (identifier, own webhook URL and secret, counters, log). See [docs/protocol/whatsapp-otp.md](docs/protocol/whatsapp-otp.md).
 - 🪟 **Beautiful, fast UI.** Translucent "glass" design, light and dark, built with Jetpack Compose.
 - 🛡️ **Admin approved.** Every phone must be approved before it can send anything (or auto-approve new phones if you choose).
 

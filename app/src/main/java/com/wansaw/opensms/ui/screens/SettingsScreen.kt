@@ -19,6 +19,8 @@ fun SettingsScreen(vm: AppViewModel, open: (String) -> Unit) {
     val env by vm.settingsEnv.collectAsState()
     val s = env.settings
     val home = Countries.byIso(s.homeCountry)
+    val waba by vm.waba.collectAsState()
+    LaunchedEffect(Unit) { vm.loadWaba() }
     var pacing by remember(s.pacingIntervalMs) { mutableFloatStateOf(s.pacingIntervalMs / 1000f) }
 
     Page("Settings") {
@@ -87,6 +89,8 @@ fun SettingsScreen(vm: AppViewModel, open: (String) -> Unit) {
             NavRow(Icons.Rounded.Webhook, Purple, "Callbacks") { open("callback") }
             GlassDivider()
             NavRow(Icons.Rounded.MarkEmailRead, Teal, "Reverse SMS", if (s.revsmsEnabled) "On" else "Off") { open("revsms") }
+            GlassDivider()
+            NavRow(Icons.Rounded.Chat, Green, "WhatsApp OTP", waba.data?.let { if (it.enabled) it.identifier ?: "On" else "Off" }) { open("waba") }
         }
 
         SectionLabel("Device")
